@@ -33,6 +33,10 @@ int PHArray[ARRAYLENGTH];
 int PHArrayIndex;
 int modeValue;
 int sampleType;
+int waterAlertPCT;
+int feedAlertMillis;
+int setupModeValue;
+int feedDays;
 unsigned long samplingTime;
 unsigned long publishTime;
 unsigned long displayTime;
@@ -82,6 +86,8 @@ displayTime = millis();
 feedTime = millis();
 modeValue = 0;
 sampleType = 0;
+setupModeValue = 0;
+feedDays = 7;
 sleepTimerOn = false;
 waterAlert = false;
 
@@ -95,7 +101,7 @@ if(sleepTimerOn == false){
 }
 if(sleepTimer.isTimerReady()){
     sleepTimerOn = false;
-    // sleep function, wake up after 1 hour
+    // sleep function, wake up after 1 hour or button press
 }
 if(feedAlert == true){
     digitalWrite(FEEDLEDPIN, HIGH);
@@ -185,10 +191,10 @@ void passiveCollection(){
     tempF = (9.0/5.0)*tempC + 32;
     moisture = analogRead(MOISTUREPIN);
     moisturePCT = (-(100/1900)*moisture) + 157.895;
-    if(moisturePCT < 50){
+    if(moisturePCT < waterAlertPCT){
         waterAlert = true;
     }
-    if(moisturePCT > 50){
+    if(moisturePCT > waterAlertPCT){
         waterAlert = false;
     }
     if(millis() - publishTime > 120000){
@@ -205,7 +211,8 @@ void passiveCollection(){
         displayTime = millis();
         // find a way to switch display modes smoothly (variable other than millis?)
     }
-    if(millis() - feedTime > 60480000){
+    feedAlertMillis = feedDays * 25 * 60 * 60 * 1000;
+    if(millis() - feedTime > feedAlertMillis){
         feedAlert = true;
     }
     if(feedAlertReset.isClicked()){
@@ -235,12 +242,27 @@ void manualSample(){
         display.setTextColor(WHITE);
         display.setCursor(0, 10);
         display.printf("PH Value:\n%0.2f\n", PHValue);
+        display.display();
         displayTime = millis();
     }
     if(nextButton.isClicked()){
         sampleType++;
         sleepTimer.startTimer(SLEEPINTERVAL);
-        // display active sample type
+        display.clearDisplay();
+        display.setTextSize(2);
+        display.setTextColor(WHITE);
+        display.setCursor(0, 10);
+        if(sampleType%3 == 0){
+            display.printf("Soil PH:\n%0.2f\n", PHValue);
+        }
+        if(sampleType%3 == 1){
+            display.printf("Water PH:\n%0.2f\n", PHValue);
+        }
+        if(sampleType%3 == 2){
+            display.printf("Runoff PH:\n%0.2f\n", PHValue);
+        }
+        display.display();
+        displayTime = millis();
     }
     if(sampleButton.isClicked()){
         if(sampleType%3 == 0){
@@ -262,5 +284,56 @@ void manualSample(){
     }
 }
 void setupMode(){
-
+    if(nextButton.isClicked()){
+        setupModeValue++;
+        sleepTimer.startTimer(SLEEPINTERVAL);
+    }
+    if(setupModeValue%2 == 0){
+        if(millis() - displayTime > 500){
+            display.clearDisplay();
+            display.setTextSize(2);
+            display.setTextColor(WHITE);
+            display.setCursor(0, 10);
+            display.printf("Water Threshold:\n%0.0f%%\n", waterAlertPCT);
+            display.display();
+            displayTime = millis();
+        }
+        if(sampleButton.isClicked()){
+            waterAlertPCT = waterAlertPCT + 5;
+            if(waterAlertPCT > 100){
+                waterAlertPCT = 0;
+            }
+            display.clearDisplay();
+            display.setTextSize(2);
+            display.setTextColor(WHITE);
+            display.setCursor(0, 10);
+            display.printf("Water Threshold:\n%0.0f%%\n", waterAlertPCT);
+            display.display();
+            displayTime = millis();
+        }
+    }
+    if(setupModeValue%2 == 1){
+        if(millis() - displayTime > 500){
+            display.clearDisplay();
+            display.setTextSize(2);
+            display.setTextColor(WHITE);
+            display.setCursor(0, 10);
+            display.printf("Feeding Interval:\n%i%%\n", feedDays);
+            display.display();
+            displayTime = millis();
+        }
+        if(sampleButton.isClicked()){
+            feedDays++;
+            if(feedDays > 14){
+                feedDays = 1;
+            }
+            display.clearDisplay();
+            display.setTextSize(2);
+            display.setTextColor(WHITE);
+            display.setCursor(0, 10);
+            display.printf("Feeding Interval:\n%i%%\n", feedDays);
+            display.display();
+            displayTime = millis();
+        }
+    }
 }
