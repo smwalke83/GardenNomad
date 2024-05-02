@@ -52,6 +52,12 @@ bool feedAlert;
 Adafruit_SSD1306 display(OLED_RESET);
 Adafruit_VEML7700 lightSensor = Adafruit_VEML7700();
 Adafruit_BME280 bme;
+TCPClient TheClient;
+Adafruit_MQTT_SPARK mqtt(&TheClient, SERVER, SERVERPORT, USERNAME, PASSWORD);         // TBD for publish/subscribe on Node Red
+Adafruit_MQTT_Publish lightPub = Adafruit_MQTT_Publish(&mqtt, USERNAME "/feeds/");   
+Adafruit_MQTT_Publish moisturePub = Adafruit_MQTT_Publish(&mqtt, USERNAME "/feeds/");
+Adafruit_MQTT_Publish tempPub = Adafruit_MQTT_Publish(&mqtt, USERNAME "/feeds/");
+Adafruit_MQTT_Publish humPub = Adafruit_MQTT_Publish(&mqtt, USERNAME "/feeds/");
 IoTTimer sleepTimer;
 Button modeButton(MODEBUTTONPIN);
 Button sampleButton(SAMPLEBUTTONPIN);
@@ -209,9 +215,8 @@ void passiveCollection(){
         display.printf("");             // display lux value, moisture, tempF, humidity, last PH reading in readable formats
         display.display();
         displayTime = millis();
-        // find a way to switch display modes smoothly (variable other than millis?)
     }
-    feedAlertMillis = feedDays * 25 * 60 * 60 * 1000;
+    feedAlertMillis = feedDays * 24 * 60 * 60 * 1000;
     if(millis() - feedTime > feedAlertMillis){
         feedAlert = true;
     }
