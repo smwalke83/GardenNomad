@@ -6,6 +6,8 @@
 
 #include "Particle.h"
 #include "IoTClassroom_CNM.h"
+#include "Adafruit_I2CDevice.h"
+#include "Adafruit_I2CRegister.h"
 #include "Adafruit_VEML7700.h"
 #include "Adafruit_GFX.h"
 #include "Adafruit_SSD1306.h"
@@ -50,7 +52,7 @@ bool sleepTimerOn;
 bool waterAlert;
 bool feedAlert;
 Adafruit_SSD1306 display(OLED_RESET);
-//Adafruit_VEML7700 lightSensor;
+Adafruit_VEML7700 lightSensor;
 Adafruit_BME280 bme;
 //TCPClient TheClient;
 //Adafruit_MQTT_SPARK mqtt(&TheClient, SERVER, SERVERPORT, USERNAME, PASSWORD);         // TBD for publish/subscribe on Node Red
@@ -83,8 +85,12 @@ display.begin(SSD1306_SWITCHCAPVCC, OLEDADDRESS);
 display.clearDisplay();
 display.display();
 bme.begin(BMEADDRESS);
-//lightSensor.setGain(VEML7700_GAIN_1_8);
-//lightSensor.setIntegrationTime(VEML7700_IT_25MS);
+if (!lightSensor.begin()){
+  Serial.println("Sensor not found");
+  while (1);
+}
+lightSensor.setGain(VEML7700_GAIN_1_8);
+lightSensor.setIntegrationTime(VEML7700_IT_25MS);
 PHArrayIndex = 0;
 samplingTime = millis();
 publishTime = millis();
@@ -193,7 +199,7 @@ void passiveCollection(){
     float tempF;
     float humidRH;
     float moisturePCT;
-    //luxValue = lightSensor.readLux();
+    luxValue = lightSensor.readLux();
     tempC = bme.readTemperature();
     humidRH = bme.readHumidity();
     tempF = (9.0/5.0)*tempC + 32;
@@ -209,7 +215,7 @@ void passiveCollection(){
         // publish data to dashboard
         publishTime = millis();
     }
-    if(millis() - displayTime > 1000){
+    if(millis() - displayTime > 500){
         display.clearDisplay();
         display.setTextSize(1);
         display.setTextColor(WHITE);
@@ -248,7 +254,15 @@ void manualSample(){
         display.setTextSize(2);
         display.setTextColor(WHITE);
         display.setCursor(0, 10);
-        display.printf("PH Value:\n%0.2f\n", PHValue);
+        if(sampleType%3 == 0){
+            display.printf("Soil PH:\n%0.2f\n", PHValue);
+        }
+        if(sampleType%3 == 1){
+            display.printf("Water PH:\n%0.2f\n", PHValue);
+        }
+        if(sampleType%3 == 2){
+            display.printf("Runoff PH:\n%0.2f\n", PHValue);
+        }
         display.display();
         displayTime = millis();
     }
@@ -325,7 +339,7 @@ void setupMode(){
             display.setTextSize(2);
             display.setTextColor(WHITE);
             display.setCursor(0, 10);
-            display.printf("Feeding Interval:\n%i%%\n", feedDays);
+            display.printf("Feeding Interval:\n%i days\n", feedDays);
             display.display();
             displayTime = millis();
         }
