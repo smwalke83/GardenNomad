@@ -54,12 +54,9 @@ bool feedAlert;
 Adafruit_SSD1306 display(OLED_RESET);
 Adafruit_VEML7700 lightSensor;
 Adafruit_BME280 bme;
-//TCPClient TheClient;
-//Adafruit_MQTT_SPARK mqtt(&TheClient, SERVER, SERVERPORT, USERNAME, PASSWORD);         // TBD for publish/subscribe on Node Red
-//Adafruit_MQTT_Publish lightPub = Adafruit_MQTT_Publish(&mqtt, USERNAME "/feeds/");   
-//Adafruit_MQTT_Publish moisturePub = Adafruit_MQTT_Publish(&mqtt, USERNAME "/feeds/");
-//Adafruit_MQTT_Publish tempPub = Adafruit_MQTT_Publish(&mqtt, USERNAME "/feeds/");
-//Adafruit_MQTT_Publish humPub = Adafruit_MQTT_Publish(&mqtt, USERNAME "/feeds/");
+TCPClient TheClient;
+Adafruit_MQTT_SPARK mqtt(&TheClient, SERVER, SERVERPORT, USERNAME, PASSWORD);
+//Adafruit_MQTT_Publish testPub = Adafruit_MQTT_Publish(&mqtt, "#flow/06ca9d9caf3db3fb/username/feeds/test1");
 IoTTimer sleepTimer;
 Button modeButton(MODEBUTTONPIN);
 Button sampleButton(SAMPLEBUTTONPIN);
@@ -70,6 +67,9 @@ double averageArray(int *arr, int number);
 void passiveCollection();
 void manualSample();
 void setupMode();
+void sleepULP();
+//void MQTT_connect();
+//bool MQTT_ping();
 
 SYSTEM_MODE(AUTOMATIC);
 
@@ -109,13 +109,15 @@ waterAlert = false;
 
 void loop() {
 
+//MQTT_connect();
+//MQTT_ping();   
 if(sleepTimerOn == false){
     sleepTimer.startTimer(SLEEPINTERVAL);
     sleepTimerOn = true;
 }
-if(sleepTimer.isTimerReady()){
+if(sleepTimer.isTimerReady() && sleepTimerOn == true){
     sleepTimerOn = false;
-    // sleep function, wake up after 1 hour or button press
+    sleepULP();
 }
 if(feedAlert == true){
     digitalWrite(FEEDLEDPIN, HIGH);
@@ -128,6 +130,7 @@ if(waterAlert == true){
 }
 if(waterAlertReset.isClicked() && waterAlert == false){
     digitalWrite(WATERLEDPIN, LOW);
+    sleepTimer.startTimer(SLEEPINTERVAL);
 }
 if(modeButton.isClicked()){
     modeValue++;
@@ -146,7 +149,39 @@ switch(modeValue%3){
 }
 
 }
+bool MQTT_ping() {
+  static unsigned int last;
+  bool pingStatus;
 
+  if ((millis()-last)>120000) {
+      Serial.printf("Pinging MQTT \n");
+      pingStatus = mqtt.ping();
+      if(!pingStatus) {
+        Serial.printf("Disconnecting \n");
+        mqtt.disconnect();
+      }
+      last = millis();
+  }
+  return pingStatus;
+}
+void MQTT_connect() {
+  int8_t ret;
+ 
+  // Return if already connected.
+  if (mqtt.connected()) {
+    return;
+  }
+ 
+  Serial.print("Connecting to MQTT... ");
+ 
+  while ((ret = mqtt.connect()) != 0) { // connect will return 0 for connected
+       Serial.printf("Error Code %s\n",mqtt.connectErrorString(ret));
+       Serial.printf("Retrying MQTT connection in 5 seconds...\n");
+       mqtt.disconnect();
+       delay(5000);  // wait 5 seconds and try again
+  }
+  Serial.printf("MQTT Connected!\n");
+}
 double averageArray(int *arr, int number){
   int i;
   int max, min;
@@ -212,7 +247,7 @@ void passiveCollection(){
         waterAlert = false;
     }
     if(millis() - publishTime > 120000){
-        // publish data to dashboard
+        //testPub.publish(tempF);
         publishTime = millis();
     }
     if(millis() - displayTime > 500){
@@ -352,9 +387,20 @@ void setupMode(){
             display.setTextSize(2);
             display.setTextColor(WHITE);
             display.setCursor(0, 10);
-            display.printf("Feeding Interval:\n%i%%\n", feedDays);
+            display.printf("Feeding Interval:\n%i days\n", feedDays);
             display.display();
             displayTime = millis();
         }
+    }
+}
+void sleepULP(){
+    SystemSleepConfiguration config;
+    config.mode(SystemSleepMode::ULTRA_LOW_POWER).gpio(D4, RISING).gpio(D5, RISING).gpio(D6, RISING).gpio(D7, RISING).gpio(D10, RISING).duration(3600000);
+    SystemSleepResult result = System.sleep(config);
+    if(result.wakeupReason() == SystemSleepWakeupReason::BY_GPIO){
+        Serial.printf("Awakened by GPIO %i\n", result.wakeupPin());
+    }
+    if(result.wakeupReason() == SystemSleepWakeupReason::BY_RTC){
+        Serial.printf("Awakened by RTC\n");
     }
 }
