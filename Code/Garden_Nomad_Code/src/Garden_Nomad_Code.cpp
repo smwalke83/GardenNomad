@@ -25,8 +25,8 @@ const int SAMPLEBUTTONPIN = D5;
 const int FEEDRESETPIN = D6;
 const int WATERRESETPIN = D7;
 const int NEXTBUTTONPIN = D10;
-const int WATERLEDPIN = D2;
-const int FEEDLEDPIN = D3;
+const int WATERLEDPIN = D3;
+const int FEEDLEDPIN = D2;
 const int SLEEPINTERVAL = 300000;
 const int BMEADDRESS = 0x76;
 int PHArray[ARRAYLENGTH];
@@ -34,9 +34,9 @@ int PHArrayIndex;
 int modeValue;
 int sampleType;
 int waterAlertPCT;
-int feedAlertMillis;
 int setupModeValue;
 int feedDays;
+unsigned long feedAlertMillis;
 unsigned long samplingTime;
 unsigned long publishTime;
 unsigned long displayTime;
@@ -50,14 +50,14 @@ bool sleepTimerOn;
 bool waterAlert;
 bool feedAlert;
 Adafruit_SSD1306 display(OLED_RESET);
-Adafruit_VEML7700 lightSensor = Adafruit_VEML7700();
+//Adafruit_VEML7700 lightSensor;
 Adafruit_BME280 bme;
-TCPClient TheClient;
-Adafruit_MQTT_SPARK mqtt(&TheClient, SERVER, SERVERPORT, USERNAME, PASSWORD);         // TBD for publish/subscribe on Node Red
-Adafruit_MQTT_Publish lightPub = Adafruit_MQTT_Publish(&mqtt, USERNAME "/feeds/");   
-Adafruit_MQTT_Publish moisturePub = Adafruit_MQTT_Publish(&mqtt, USERNAME "/feeds/");
-Adafruit_MQTT_Publish tempPub = Adafruit_MQTT_Publish(&mqtt, USERNAME "/feeds/");
-Adafruit_MQTT_Publish humPub = Adafruit_MQTT_Publish(&mqtt, USERNAME "/feeds/");
+//TCPClient TheClient;
+//Adafruit_MQTT_SPARK mqtt(&TheClient, SERVER, SERVERPORT, USERNAME, PASSWORD);         // TBD for publish/subscribe on Node Red
+//Adafruit_MQTT_Publish lightPub = Adafruit_MQTT_Publish(&mqtt, USERNAME "/feeds/");   
+//Adafruit_MQTT_Publish moisturePub = Adafruit_MQTT_Publish(&mqtt, USERNAME "/feeds/");
+//Adafruit_MQTT_Publish tempPub = Adafruit_MQTT_Publish(&mqtt, USERNAME "/feeds/");
+//Adafruit_MQTT_Publish humPub = Adafruit_MQTT_Publish(&mqtt, USERNAME "/feeds/");
 IoTTimer sleepTimer;
 Button modeButton(MODEBUTTONPIN);
 Button sampleButton(SAMPLEBUTTONPIN);
@@ -83,8 +83,8 @@ display.begin(SSD1306_SWITCHCAPVCC, OLEDADDRESS);
 display.clearDisplay();
 display.display();
 bme.begin(BMEADDRESS);
-lightSensor.setGain(VEML7700_GAIN_1_8);
-lightSensor.setIntegrationTime(VEML7700_IT_25MS);
+//lightSensor.setGain(VEML7700_GAIN_1_8);
+//lightSensor.setIntegrationTime(VEML7700_IT_25MS);
 PHArrayIndex = 0;
 samplingTime = millis();
 publishTime = millis();
@@ -93,7 +93,9 @@ feedTime = millis();
 modeValue = 0;
 sampleType = 0;
 setupModeValue = 0;
+lastPH = 0;
 feedDays = 7;
+waterAlertPCT = 50;
 sleepTimerOn = false;
 waterAlert = false;
 
@@ -118,7 +120,7 @@ if(feedAlert == false){
 if(waterAlert == true){
     digitalWrite(WATERLEDPIN, HIGH);
 }
-if(waterAlert == false){
+if(waterAlertReset.isClicked() && waterAlert == false){
     digitalWrite(WATERLEDPIN, LOW);
 }
 if(modeButton.isClicked()){
@@ -191,12 +193,12 @@ void passiveCollection(){
     float tempF;
     float humidRH;
     float moisturePCT;
-    luxValue = lightSensor.readLux();
+    //luxValue = lightSensor.readLux();
     tempC = bme.readTemperature();
     humidRH = bme.readHumidity();
     tempF = (9.0/5.0)*tempC + 32;
     moisture = analogRead(MOISTUREPIN);
-    moisturePCT = (-(100/1900)*moisture) + 157.895;
+    moisturePCT = (-(100.0/2000.0)*moisture) + 155.0;
     if(moisturePCT < waterAlertPCT){
         waterAlert = true;
     }
@@ -212,7 +214,7 @@ void passiveCollection(){
         display.setTextSize(1);
         display.setTextColor(WHITE);
         display.setCursor(0, 10);
-        display.printf("");             // display lux value, moisture, tempF, humidity, last PH reading in readable formats
+        display.printf("Lux: %i\nMoisture: %0.0f%%\nTemp: %0.2fF\nHum: %0.2f\nLast PH: %0.2f\n", luxValue, moisturePCT, tempF, humidRH, lastPH);
         display.display();
         displayTime = millis();
     }
@@ -299,7 +301,7 @@ void setupMode(){
             display.setTextSize(2);
             display.setTextColor(WHITE);
             display.setCursor(0, 10);
-            display.printf("Water Threshold:\n%0.0f%%\n", waterAlertPCT);
+            display.printf("Water Threshold:\n%i%%\n", waterAlertPCT);
             display.display();
             displayTime = millis();
         }
@@ -312,7 +314,7 @@ void setupMode(){
             display.setTextSize(2);
             display.setTextColor(WHITE);
             display.setCursor(0, 10);
-            display.printf("Water Threshold:\n%0.0f%%\n", waterAlertPCT);
+            display.printf("Water Threshold:\n%i%%\n", waterAlertPCT);
             display.display();
             displayTime = millis();
         }

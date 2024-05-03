@@ -8,7 +8,7 @@
 #include "Adafruit_VEML7700.h"
 #include "Adafruit_GFX.h"
 #include "Adafruit_SSD1306.h"   
-Adafruit_VEML7700 lightSensor = Adafruit_VEML7700();
+Adafruit_VEML7700 lightSensor;
 int lastTime;
 const int OLED_RESET = -1;
 const int OLEDADDRESS = 0x3C;
