@@ -56,7 +56,13 @@ Adafruit_VEML7700 lightSensor;
 Adafruit_BME280 bme;
 TCPClient TheClient;
 Adafruit_MQTT_SPARK mqtt(&TheClient, SERVER, SERVERPORT, USERNAME, PASSWORD);
-//Adafruit_MQTT_Publish testPub = Adafruit_MQTT_Publish(&mqtt, "#flow/06ca9d9caf3db3fb/username/feeds/test1");
+Adafruit_MQTT_Publish tempPub = Adafruit_MQTT_Publish(&mqtt, "TempFeed");
+Adafruit_MQTT_Publish luxPub = Adafruit_MQTT_Publish(&mqtt, "LuxFeed");
+Adafruit_MQTT_Publish humPub = Adafruit_MQTT_Publish(&mqtt, "HumFeed");
+Adafruit_MQTT_Publish moisturePub = Adafruit_MQTT_Publish(&mqtt, "MoistureFeed");
+Adafruit_MQTT_Publish soilPHPub = Adafruit_MQTT_Publish(&mqtt, "SoilPH");
+Adafruit_MQTT_Publish waterPHPub = Adafruit_MQTT_Publish(&mqtt, "WaterPH");
+Adafruit_MQTT_Publish runoffPub = Adafruit_MQTT_Publish(&mqtt, "RunoffPH");
 IoTTimer sleepTimer;
 Button modeButton(MODEBUTTONPIN);
 Button sampleButton(SAMPLEBUTTONPIN);
@@ -68,8 +74,8 @@ void passiveCollection();
 void manualSample();
 void setupMode();
 void sleepULP();
-//void MQTT_connect();
-//bool MQTT_ping();
+void MQTT_connect();
+bool MQTT_ping();
 
 SYSTEM_MODE(AUTOMATIC);
 
@@ -109,8 +115,8 @@ waterAlert = false;
 
 void loop() {
 
-//MQTT_connect();
-//MQTT_ping();   
+MQTT_connect();
+MQTT_ping();   
 if(sleepTimerOn == false){
     sleepTimer.startTimer(SLEEPINTERVAL);
     sleepTimerOn = true;
@@ -246,8 +252,11 @@ void passiveCollection(){
     if(moisturePCT > waterAlertPCT){
         waterAlert = false;
     }
-    if(millis() - publishTime > 120000){
-        //testPub.publish(tempF);
+    if(millis() - publishTime > 5000){
+        tempPub.publish(tempF);
+        luxPub.publish(luxValue);
+        humPub.publish(humidRH);
+        moisturePub.publish(moisturePCT);
         publishTime = millis();
     }
     if(millis() - displayTime > 500){
@@ -324,17 +333,17 @@ void manualSample(){
         if(sampleType%3 == 0){
             soilSample = PHValue;
             lastPH = PHValue;
-            // publish soilSample to dashboard
+            soilPHPub.publish(soilSample);
         }
         if(sampleType%3 == 1){
             waterSample = PHValue;
             lastPH = PHValue;
-            // publish waterSample to dashboard
+            waterPHPub.publish(waterSample);
         }
         if(sampleType%3 == 2){
             runoffSample = PHValue;
             lastPH = PHValue;
-            // publish runoffSample to dashboard
+            runoffPub.publish(runoffSample);
         }
         sleepTimer.startTimer(SLEEPINTERVAL);
     }
